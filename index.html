@@ -523,28 +523,25 @@ async function moveRow(index, direction){
   const targetIndex = index + direction;
   if(targetIndex < 0 || targetIndex >= data.length) return;
 
-  const kelasA = data[index].kelas;
-  const kelasB = data[targetIndex].kelas;
-
-  // Optimistic UI: tukar posisi langsung
+  // Tukar posisi di data (optimistic update untuk tampilan langsung)
   [data[index], data[targetIndex]] = [data[targetIndex], data[index]];
-  // Tukar juga nilai di orderMap secara lokal supaya konsisten
-  const oa = (kelasA in orderMap) ? orderMap[kelasA] : (1000 + kelasOrder(kelasA));
-  const ob = (kelasB in orderMap) ? orderMap[kelasB] : (1000 + kelasOrder(kelasB));
-  orderMap[kelasA] = ob;
-  orderMap[kelasB] = oa;
   renderTable();
 
+  // Susun ulang orderMap & kirim ke backend supaya tersimpan permanen di Sheet
+  data.forEach((row, i) => { orderMap[row.kelas] = i; });
+  const orderParam = data.map(r => encodeURIComponent(r.kelas)).join(",");
+
   reorderBusy = true;
+  showOverlayLoading("Menyimpan urutan...");
   try {
-    const url = API_URL + "?action=reorder&kelasA=" + encodeURIComponent(kelasA) + "&kelasB=" + encodeURIComponent(kelasB);
-    await fetch(url, { method:"GET", mode:"no-cors" });
-    await new Promise(r=>setTimeout(r, 1200));
+    await fetch(API_URL + "?action=reorder&order=" + orderParam, { method:"GET", mode:"no-cors" });
+    await new Promise(r=>setTimeout(r, 1500));
     await loadData();
   } catch(e) {
     showToast("❌ Gagal menyimpan urutan.");
   } finally {
     reorderBusy = false;
+    hideOverlayLoading();
   }
 }
 
@@ -574,7 +571,7 @@ async function loadData(){
       grouped[k].push({ nominal: Number(row.nominal), tgl: String(row.tgl), rowIndex: idx+2 });
     });
 
-    orderMap = json.order || {};
+    orderMap = (json.order && typeof json.order === "object") ? json.order : {};
     const keys = Object.keys(grouped).sort((a,b)=>{
       const oa = (a in orderMap) ? orderMap[a] : (1000 + kelasOrder(a));
       const ob = (b in orderMap) ? orderMap[b] : (1000 + kelasOrder(b));
@@ -614,6 +611,7 @@ function renderStats(){
   if(!data.length){ document.getElementById("stats-row").innerHTML=""; return; }
   const gt=data.reduce((s,r)=>s+total(r),0);
   const persen = targetDana>0 ? (gt/targetDana*100) : 0;
+  const tb=data.reduce((m,r)=>total(r)>total(m)?r:m,data[0]);
   document.getElementById("stats-row").innerHTML=`
     <div class="stat-card accent"><div class="label">Total Terkumpul</div><div class="value">${fmt(gt)}</div></div>
     <div class="stat-card"><div class="label">Jumlah Kontributor</div><div class="value">${data.length}</div></div>
@@ -621,7 +619,7 @@ function renderStats(){
       <div class="label">Target Dana <button class="edit-target-btn" title="Ubah target" onclick="editTargetDana()">✏️</button></div>
       <div class="value" id="target-display">${fmt(targetDana)}</div>
     </div>
-    <div class="stat-card"><div class="label">Pencapaian</div><div class="value" style="color:${persen>=100?'var(--green)':'var(--accent)'}">${persen.toFixed(1)}%</div></div>
+    <div class="stat-card"><div class="label">Kontributor Terbesar</div><div class="value">${tb.kelas}<br><span style="font-size:13px;color:var(--green)">${fmt(total(tb))}</span></div></div>
   `;
   renderProgress(gt, persen);
 }
