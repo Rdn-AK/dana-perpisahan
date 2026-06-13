@@ -618,7 +618,7 @@ function renderStats(){
     <div class="stat-card accent"><div class="label">Total Terkumpul</div><div class="value">${fmt(gt)}</div></div>
     <div class="stat-card"><div class="label">Jumlah Kontributor</div><div class="value">${data.length}</div></div>
     <div class="stat-card">
-      <div class="label">Target Dana <button class="edit-target-btn" title="Ubah target" onclick="editTarget()">✏️</button></div>
+      <div class="label">Target Dana <button class="edit-target-btn" title="Ubah target" onclick="editTargetDana()">✏️</button></div>
       <div class="value" id="target-display">${fmt(targetDana)}</div>
     </div>
     <div class="stat-card"><div class="label">Pencapaian</div><div class="value" style="color:${persen>=100?'var(--green)':'var(--accent)'}">${persen.toFixed(1)}%</div></div>
@@ -638,7 +638,7 @@ function renderProgress(gt, persen){
     : `${fmt(gt)} dari target ${fmt(targetDana)} — kurang ${fmt(sisa)}.`;
 }
 
-function editTarget(){
+function editTargetDana(){
   const current = targetDana;
   const input = prompt("Masukkan target dana baru (Rp):", current);
   if(input === null) return;
