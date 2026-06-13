@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Recap Sumbangan Dana Perpisahan</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
   :root {
@@ -345,7 +345,7 @@ function fetchGET(url){
     const timeout = setTimeout(()=>{
       cleanup();
       reject(new Error("timeout"));
-    }, 10000);
+    }, 8000);
 
     window[cbName] = function(data){
       cleanup();
@@ -551,10 +551,12 @@ async function moveRow(index, direction){
 async function loadData(){
   setStatus("loading");
   try {
-    // Coba fetch biasa dulu (kalau dibuka dari server/hosting)
     let json;
     try {
-      const res = await fetch(API_URL);
+      const controller = new AbortController();
+      const t = setTimeout(()=>controller.abort(), 6000);
+      const res = await fetch(API_URL, { signal: controller.signal });
+      clearTimeout(t);
       json = await res.json();
     } catch(e) {
       // Fallback: JSONP
