@@ -96,6 +96,35 @@
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:#fff;padding:12px 24px;border-radius:99px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.18);transition:transform .35s cubic-bezier(.34,1.56,.64,1);z-index:999;pointer-events:none;}
   .toast.show{transform:translateX(-50%) translateY(0);}
 
+  /* Edit/Delete buttons on setoran rows */
+  .setoran-item{position:relative;padding-right:62px;}
+  .setoran-actions{position:absolute;right:0;top:50%;transform:translateY(-50%);display:flex;gap:4px;}
+  .icon-btn{width:24px;height:24px;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:background .15s,transform .1s;}
+  .icon-btn:active{transform:scale(0.9);}
+  .icon-btn.edit{background:#eef1ff;color:var(--accent);}
+  .icon-btn.edit:hover{background:#dde4fe;}
+  .icon-btn.del{background:#fee2e2;color:#ef4444;}
+  .icon-btn.del:hover{background:#fca5a5;}
+
+  /* Modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(26,31,54,.45);display:flex;align-items:center;justify-content:center;z-index:1100;padding:16px;opacity:0;pointer-events:none;transition:opacity .25s;}
+  .modal-overlay.show{opacity:1;pointer-events:auto;}
+  .modal{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);max-width:380px;width:100%;padding:24px;transform:translateY(16px) scale(.98);transition:transform .25s;}
+  .modal-overlay.show .modal{transform:translateY(0) scale(1);}
+  .modal h3{font-size:16px;font-weight:800;margin-bottom:16px;color:var(--text);}
+  .modal .form-group{margin-bottom:14px;}
+  .modal-actions{display:flex;gap:10px;margin-top:6px;}
+  .modal-actions button{flex:1;padding:11px;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;}
+  .modal-actions button:active{transform:scale(0.97);}
+  .btn-cancel{background:var(--surface2);color:var(--text2);border:1.5px solid var(--border)!important;}
+  .btn-cancel:hover{background:var(--border);}
+  .btn-save{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;}
+  .btn-save:hover{opacity:.9;}
+  .btn-confirm-del{background:#ef4444;color:#fff;}
+  .btn-confirm-del:hover{opacity:.9;}
+  .modal p.warn{font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.5;}
+  .modal p.warn strong{color:var(--text);}
+
   @keyframes fadeDown{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -193,6 +222,41 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal">
+    <h3>✏️ Edit Setoran</h3>
+    <div class="form-group">
+      <label>Kelas / Nama</label>
+      <input type="text" id="edit-kelas" />
+    </div>
+    <div class="form-group">
+      <label>Nominal (Rp)</label>
+      <input type="number" id="edit-nominal" min="0" />
+    </div>
+    <div class="form-group">
+      <label>Tanggal</label>
+      <input type="date" id="edit-tanggal" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditModal()">Batal</button>
+      <button class="btn-save" onclick="saveEdit()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal">
+    <h3>🗑️ Hapus Setoran</h3>
+    <p class="warn">Yakin ingin menghapus setoran <strong id="del-info"></strong>? Tindakan ini tidak dapat dibatalkan.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeDeleteModal()">Batal</button>
+      <button class="btn-confirm-del" onclick="confirmDelete()">Hapus</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API_URL = "https://script.google.com/macros/s/AKfycbzjOAtPEVCLdKVfWJg5NYH1NCbpD-lxQpc3VpbHjk_214SW2iv4LRpx2FG7O1i0CO9HIw/exec";
 
@@ -272,6 +336,90 @@ function postViaIframe(url, payload){
   });
 }
 
+// ── EDIT MODAL ──
+let editTarget = null;
+function openEditModal(rowIndex, kelas, nominal, tgl){
+  editTarget = { rowIndex, oldKelas: kelas, oldNominal: nominal, oldTgl: tgl };
+  document.getElementById("edit-kelas").value = kelas;
+  document.getElementById("edit-nominal").value = nominal;
+  document.getElementById("edit-tanggal").value = tglToIso(tgl);
+  document.getElementById("edit-modal").classList.add("show");
+}
+function closeEditModal(){
+  document.getElementById("edit-modal").classList.remove("show");
+  editTarget = null;
+}
+async function saveEdit(){
+  if(!editTarget) return;
+  const kelas = document.getElementById("edit-kelas").value.trim();
+  const nominal = parseFloat(document.getElementById("edit-nominal").value);
+  const tglIso = document.getElementById("edit-tanggal").value;
+  if(!kelas || !nominal || nominal<=0 || !tglIso){ showToast("⚠️ Lengkapi semua data!"); return; }
+  const tgl = formatTgl(tglIso);
+
+  closeEditModal();
+  showOverlayLoading("Menyimpan perubahan...");
+  try {
+    await fetch(API_URL + "?action=edit&row=" + editTarget.rowIndex +
+      "&kelas=" + encodeURIComponent(kelas) +
+      "&nominal=" + nominal +
+      "&tgl=" + encodeURIComponent(tgl), { method:"GET", mode:"no-cors" });
+    await new Promise(r=>setTimeout(r, 2000));
+    await loadData();
+    showToast("✅ Data berhasil diubah!");
+  } catch(e) {
+    showToast("❌ Gagal menyimpan perubahan.");
+  } finally {
+    hideOverlayLoading();
+  }
+}
+
+// ── DELETE MODAL ──
+let deleteTarget = null;
+function openDeleteModal(rowIndex, kelas, nominal, tgl){
+  deleteTarget = { rowIndex };
+  document.getElementById("del-info").textContent = `${kelas} - ${fmt(nominal)} (${tgl})`;
+  document.getElementById("delete-modal").classList.add("show");
+}
+function closeDeleteModal(){
+  document.getElementById("delete-modal").classList.remove("show");
+  deleteTarget = null;
+}
+async function confirmDelete(){
+  if(!deleteTarget) return;
+  const rowIndex = deleteTarget.rowIndex;
+  closeDeleteModal();
+  showOverlayLoading("Menghapus data...");
+  try {
+    await fetch(API_URL + "?action=delete&row=" + rowIndex, { method:"GET", mode:"no-cors" });
+    await new Promise(r=>setTimeout(r, 2000));
+    await loadData();
+    showToast("✅ Data berhasil dihapus!");
+  } catch(e) {
+    showToast("❌ Gagal menghapus data.");
+  } finally {
+    hideOverlayLoading();
+  }
+}
+
+function tglToIso(tgl){
+  // format "d/m/yy" -> "yyyy-mm-dd"
+  const parts = tgl.split("/");
+  if(parts.length!==3) return "";
+  let [d,m,y] = parts;
+  if(y.length===2) y = "20"+y;
+  return `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+}
+
+function showOverlayLoading(msg){
+  const ov = document.getElementById("loading-overlay");
+  ov.querySelector("p").textContent = msg;
+  ov.classList.remove("hidden");
+}
+function hideOverlayLoading(){
+  document.getElementById("loading-overlay").classList.add("hidden");
+}
+
 async function loadData(){
   setStatus("loading");
   try {
@@ -288,11 +436,12 @@ async function loadData(){
     if(!json || !json.data) throw new Error("no data");
 
     const grouped = {};
-    json.data.forEach(row => {
+    json.data.forEach((row, idx) => {
       const k = row.kelas ? String(row.kelas).trim() : "";
       if(!k) return;
       if(!grouped[k]) grouped[k] = [];
-      grouped[k].push({ nominal: Number(row.nominal), tgl: String(row.tgl) });
+      // idx+2 = nomor baris di sheet (baris 1 = header)
+      grouped[k].push({ nominal: Number(row.nominal), tgl: String(row.tgl), rowIndex: idx+2 });
     });
 
     const keys = Object.keys(grouped).sort((a,b)=>kelasOrder(a)-kelasOrder(b));
@@ -350,6 +499,10 @@ function renderTable(hlKelas){
         <span class="nominal">${fmt(s.nominal)}</span>
         <span class="tanggal">${s.tgl}</span>
         ${isNew?'<span class="new-tag">BARU</span>':""}
+        <div class="setoran-actions">
+          <button class="icon-btn edit" title="Edit" onclick="openEditModal(${s.rowIndex}, '${row.kelas.replace(/'/g,"\\'")}', ${s.nominal}, '${s.tgl}')">✏️</button>
+          <button class="icon-btn del" title="Hapus" onclick="openDeleteModal(${s.rowIndex}, '${row.kelas.replace(/'/g,"\\'")}', ${s.nominal}, '${s.tgl}')">🗑️</button>
+        </div>
       </div>`;
     }).join("");
     html+=`<tr${isHL?' class="new-row"':''} data-kelas="${row.kelas}">
