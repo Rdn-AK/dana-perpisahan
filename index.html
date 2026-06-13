@@ -336,6 +336,32 @@ function postViaIframe(url, payload){
   });
 }
 
+// ── HELPERS ──
+function escapeAttr(str){
+  return String(str)
+    .replace(/&/g,"&amp;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;");
+}
+
+function handleEditClick(btn){
+  const rowIndex = parseInt(btn.dataset.row);
+  const kelas = btn.dataset.kelas;
+  const nominal = parseFloat(btn.dataset.nominal);
+  const tgl = btn.dataset.tgl;
+  openEditModal(rowIndex, kelas, nominal, tgl);
+}
+
+function handleDeleteClick(btn){
+  const rowIndex = parseInt(btn.dataset.row);
+  const kelas = btn.dataset.kelas;
+  const nominal = parseFloat(btn.dataset.nominal);
+  const tgl = btn.dataset.tgl;
+  openDeleteModal(rowIndex, kelas, nominal, tgl);
+}
+
 // ── EDIT MODAL ──
 let editTarget = null;
 function openEditModal(rowIndex, kelas, nominal, tgl){
@@ -360,14 +386,16 @@ async function saveEdit(){
   closeEditModal();
   showOverlayLoading("Menyimpan perubahan...");
   try {
-    await fetch(API_URL + "?action=edit&row=" + editTarget.rowIndex +
+    const url = API_URL + "?action=edit&row=" + editTarget.rowIndex +
       "&kelas=" + encodeURIComponent(kelas) +
       "&nominal=" + nominal +
-      "&tgl=" + encodeURIComponent(tgl), { method:"GET", mode:"no-cors" });
-    await new Promise(r=>setTimeout(r, 2000));
+      "&tgl=" + encodeURIComponent(tgl);
+    await fetch(url, { method:"GET", mode:"no-cors" });
+    await new Promise(r=>setTimeout(r, 3000));
     await loadData();
     showToast("✅ Data berhasil diubah!");
   } catch(e) {
+    console.error(e);
     showToast("❌ Gagal menyimpan perubahan.");
   } finally {
     hideOverlayLoading();
@@ -500,8 +528,8 @@ function renderTable(hlKelas){
         <span class="tanggal">${s.tgl}</span>
         ${isNew?'<span class="new-tag">BARU</span>':""}
         <div class="setoran-actions">
-          <button class="icon-btn edit" title="Edit" onclick="openEditModal(${s.rowIndex}, '${row.kelas.replace(/'/g,"\\'")}', ${s.nominal}, '${s.tgl}')">✏️</button>
-          <button class="icon-btn del" title="Hapus" onclick="openDeleteModal(${s.rowIndex}, '${row.kelas.replace(/'/g,"\\'")}', ${s.nominal}, '${s.tgl}')">🗑️</button>
+          <button class="icon-btn edit" title="Edit" data-row="${s.rowIndex}" data-kelas="${escapeAttr(row.kelas)}" data-nominal="${s.nominal}" data-tgl="${s.tgl}" onclick="handleEditClick(this)">✏️</button>
+          <button class="icon-btn del" title="Hapus" data-row="${s.rowIndex}" data-kelas="${escapeAttr(row.kelas)}" data-nominal="${s.nominal}" data-tgl="${s.tgl}" onclick="handleDeleteClick(this)">🗑️</button>
         </div>
       </div>`;
     }).join("");
