@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Recap Sumbangan Dana Perpisahan</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
   :root {
@@ -37,13 +38,45 @@
   .btn-refresh{background:var(--accent-light);color:var(--accent);border:none;border-radius:6px;padding:5px 12px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s;}
   .btn-refresh:hover{background:#dde4fe;}
 
-  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:32px;animation:fadeUp .6s .1s ease both;}
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:18px;animation:fadeUp .6s .1s ease both;}
   .stat-card{background:var(--surface);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow2);border:1px solid var(--border);transition:transform .2s,box-shadow .2s;}
   .stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow);}
-  .stat-card .label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+  .stat-card .label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:6px;}
   .stat-card .value{font-family:'DM Mono',monospace;font-size:clamp(15px,3vw,20px);font-weight:500;color:var(--text);word-break:break-word;}
   .stat-card.accent{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;}
   .stat-card.accent .label,.stat-card.accent .value{color:#fff;}
+  .target-input{background:transparent;border:none;border-bottom:1.5px dashed var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:clamp(15px,3vw,20px);font-weight:500;width:100%;padding:0 0 2px;outline:none;transition:border-color .15s;}
+  .target-input:focus{border-color:var(--accent);}
+  .edit-target-btn{background:none;border:none;cursor:pointer;font-size:12px;color:var(--text3);padding:0;line-height:1;}
+  .edit-target-btn:hover{color:var(--accent);}
+
+  /* Progress bar */
+  .progress-card{background:var(--surface);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow2);border:1px solid var(--border);margin-bottom:32px;animation:fadeUp .6s .15s ease both;}
+  .progress-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+  .progress-head .ptitle{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);}
+  .progress-head .pvalue{font-family:'DM Mono',monospace;font-size:13px;font-weight:700;color:var(--accent);}
+  .progress-track{width:100%;height:14px;background:var(--surface2);border-radius:99px;overflow:hidden;border:1px solid var(--border);}
+  .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 1s cubic-bezier(.22,1,.36,1);position:relative;}
+  .progress-fill.over{background:linear-gradient(90deg,var(--green),#34d399);}
+  .progress-sub{margin-top:8px;font-size:12px;color:var(--text2);}
+
+  /* Toolbar: search + export */
+  .toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .search-wrap{position:relative;flex:1;min-width:180px;}
+  .search-wrap input{width:100%;padding:9px 14px 9px 34px;border:1.5px solid var(--border);border-radius:99px;font-family:inherit;font-size:13px;background:var(--surface2);outline:none;transition:border-color .2s,box-shadow .2s;}
+  .search-wrap input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,110,247,.1);background:#fff;}
+  .search-wrap .sicon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--text3);pointer-events:none;}
+  .export-actions{display:flex;gap:8px;}
+  .btn-export{background:var(--surface2);color:var(--text2);border:1.5px solid var(--border);border-radius:99px;padding:8px 14px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .15s,color .15s,border-color .15s;white-space:nowrap;}
+  .btn-export:hover{background:var(--accent-light);color:var(--accent);border-color:var(--accent);}
+  .no-result{padding:36px 16px;text-align:center;color:var(--text3);font-size:13px;}
+
+  @media print{
+    .loading-overlay,.status-bar,.form-card,.toast,.modal-overlay,.toolbar,.reorder-actions,.setoran-actions,.btn-refresh,.edit-target-btn{display:none!important;}
+    body{padding:0;background:#fff;}
+    .card,.stat-card,.progress-card{box-shadow:none;border:1px solid #ddd;}
+    .icon-btn{display:none!important;}
+  }
 
   .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden;margin-bottom:28px;animation:fadeUp .6s .2s ease both;}
   .card-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:var(--surface2);}
@@ -106,6 +139,14 @@
   .icon-btn.del{background:#fee2e2;color:#ef4444;}
   .icon-btn.del:hover{background:#fca5a5;}
 
+  /* Reorder buttons */
+  .kelas-cell{display:flex;align-items:center;gap:8px;}
+  .reorder-actions{display:flex;flex-direction:column;gap:2px;}
+  .icon-btn.move{width:20px;height:18px;background:var(--surface2);color:var(--text2);border:1px solid var(--border);font-size:10px;border-radius:4px;}
+  .icon-btn.move:hover{background:var(--accent-light);color:var(--accent);border-color:var(--accent);}
+  .icon-btn.move:disabled{opacity:.25;cursor:not-allowed;}
+  .icon-btn.move:disabled:hover{background:var(--surface2);color:var(--text2);border-color:var(--border);}
+
   /* Modal */
   .modal-overlay{position:fixed;inset:0;background:rgba(26,31,54,.45);display:flex;align-items:center;justify-content:center;z-index:1100;padding:16px;opacity:0;pointer-events:none;transition:opacity .25s;}
   .modal-overlay.show{opacity:1;pointer-events:auto;}
@@ -155,9 +196,32 @@
 
 <div class="stats-row" id="stats-row"></div>
 
+<div class="progress-card">
+  <div class="progress-head">
+    <span class="ptitle">📈 Progress Pencapaian Target</span>
+    <span class="pvalue" id="progress-label">0%</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+  <div class="progress-sub" id="progress-sub"></div>
+</div>
+
 <div class="card">
   <div class="card-header">
     <h2><span>📋</span> Rincian Sumbangan per Kelas</h2>
+  </div>
+  <div class="card-header" style="border-top:1px solid var(--border);background:var(--surface);">
+    <div class="toolbar" style="width:100%;">
+      <div class="search-wrap">
+        <span class="sicon">🔍</span>
+        <input type="text" id="search-input" placeholder="Cari nama / kelas..." oninput="onSearch()" />
+      </div>
+      <div class="export-actions">
+        <button class="btn-export" onclick="exportExcel()">📊 Excel</button>
+        <button class="btn-export" onclick="window.print()">🖨️ Cetak / PDF</button>
+      </div>
+    </div>
   </div>
   <div class="table-wrap">
     <table>
@@ -264,6 +328,10 @@ const ORDER = ["XII - A1","XII - A2","XII - B1","XII - B2","XII - C1","XII - C2"
 
 let data = [];
 let newSetoranKeys = new Set();
+let orderMap = {};
+let reorderBusy = false;
+let targetDana = parseInt(localStorage.getItem("targetDana")) || 100000000;
+let searchQuery = "";
 
 function kelasOrder(k){ const i=ORDER.indexOf(k); return i>=0?i:ORDER.length; }
 function fmt(n){ return "Rp "+Number(n).toLocaleString("id-ID"); }
@@ -449,6 +517,37 @@ function hideOverlayLoading(){
   document.getElementById("loading-overlay").classList.add("hidden");
 }
 
+// ── REORDER ──
+async function moveRow(index, direction){
+  if(reorderBusy) return;
+  const targetIndex = index + direction;
+  if(targetIndex < 0 || targetIndex >= data.length) return;
+
+  const kelasA = data[index].kelas;
+  const kelasB = data[targetIndex].kelas;
+
+  // Optimistic UI: tukar posisi langsung
+  [data[index], data[targetIndex]] = [data[targetIndex], data[index]];
+  // Tukar juga nilai di orderMap secara lokal supaya konsisten
+  const oa = (kelasA in orderMap) ? orderMap[kelasA] : (1000 + kelasOrder(kelasA));
+  const ob = (kelasB in orderMap) ? orderMap[kelasB] : (1000 + kelasOrder(kelasB));
+  orderMap[kelasA] = ob;
+  orderMap[kelasB] = oa;
+  renderTable();
+
+  reorderBusy = true;
+  try {
+    const url = API_URL + "?action=reorder&kelasA=" + encodeURIComponent(kelasA) + "&kelasB=" + encodeURIComponent(kelasB);
+    await fetch(url, { method:"GET", mode:"no-cors" });
+    await new Promise(r=>setTimeout(r, 1200));
+    await loadData();
+  } catch(e) {
+    showToast("❌ Gagal menyimpan urutan.");
+  } finally {
+    reorderBusy = false;
+  }
+}
+
 async function loadData(){
   setStatus("loading");
   try {
@@ -473,7 +572,12 @@ async function loadData(){
       grouped[k].push({ nominal: Number(row.nominal), tgl: String(row.tgl), rowIndex: idx+2 });
     });
 
-    const keys = Object.keys(grouped).sort((a,b)=>kelasOrder(a)-kelasOrder(b));
+    orderMap = json.order || {};
+    const keys = Object.keys(grouped).sort((a,b)=>{
+      const oa = (a in orderMap) ? orderMap[a] : (1000 + kelasOrder(a));
+      const ob = (b in orderMap) ? orderMap[b] : (1000 + kelasOrder(b));
+      return oa - ob;
+    });
     data = keys.map((k,i)=>({ id:i+1, kelas:k, setoran:grouped[k] }));
 
     updateLastUpdated();
@@ -507,19 +611,94 @@ function updateLastUpdated(){
 function renderStats(){
   if(!data.length){ document.getElementById("stats-row").innerHTML=""; return; }
   const gt=data.reduce((s,r)=>s+total(r),0);
-  const tb=data.reduce((m,r)=>total(r)>total(m)?r:m,data[0]);
+  const persen = targetDana>0 ? (gt/targetDana*100) : 0;
   document.getElementById("stats-row").innerHTML=`
     <div class="stat-card accent"><div class="label">Total Terkumpul</div><div class="value">${fmt(gt)}</div></div>
     <div class="stat-card"><div class="label">Jumlah Kontributor</div><div class="value">${data.length}</div></div>
-    <div class="stat-card"><div class="label">Rata-rata</div><div class="value">${fmt(Math.round(gt/data.length))}</div></div>
-    <div class="stat-card"><div class="label">Kontributor Terbesar</div><div class="value">${tb.kelas}<br><span style="font-size:13px;color:var(--green)">${fmt(total(tb))}</span></div></div>
+    <div class="stat-card">
+      <div class="label">Target Dana <button class="edit-target-btn" title="Ubah target" onclick="editTarget()">✏️</button></div>
+      <div class="value" id="target-display">${fmt(targetDana)}</div>
+    </div>
+    <div class="stat-card"><div class="label">Pencapaian</div><div class="value" style="color:${persen>=100?'var(--green)':'var(--accent)'}">${persen.toFixed(1)}%</div></div>
   `;
+  renderProgress(gt, persen);
+}
+
+function renderProgress(gt, persen){
+  const pct = Math.min(persen, 100);
+  const fill = document.getElementById("progress-fill");
+  fill.style.width = pct + "%";
+  fill.classList.toggle("over", persen>=100);
+  document.getElementById("progress-label").textContent = persen.toFixed(1) + "%";
+  const sisa = targetDana - gt;
+  document.getElementById("progress-sub").textContent = persen>=100
+    ? `🎉 Target tercapai! Kelebihan ${fmt(Math.abs(sisa))} dari target ${fmt(targetDana)}.`
+    : `${fmt(gt)} dari target ${fmt(targetDana)} — kurang ${fmt(sisa)}.`;
+}
+
+function editTarget(){
+  const current = targetDana;
+  const input = prompt("Masukkan target dana baru (Rp):", current);
+  if(input === null) return;
+  const val = parseFloat(input.replace(/[^0-9]/g,""));
+  if(!val || val<=0){ showToast("⚠️ Nilai target tidak valid!"); return; }
+  targetDana = val;
+  localStorage.setItem("targetDana", String(val));
+  renderStats();
+  showToast("✅ Target dana diperbarui!");
+}
+
+// ── SEARCH ──
+function onSearch(){
+  searchQuery = document.getElementById("search-input").value.trim().toLowerCase();
+  renderTable();
+}
+
+function getFilteredData(){
+  if(!searchQuery) return data;
+  return data.filter(r => r.kelas.toLowerCase().includes(searchQuery));
+}
+
+// ── EXPORT EXCEL ──
+function exportExcel(){
+  if(!data.length){ showToast("⚠️ Tidak ada data untuk diekspor."); return; }
+  const rows = [["No","Kelas/Nama","Nominal","Tanggal","Total per Kelas"]];
+  data.forEach((row,i)=>{
+    row.setoran.forEach((s,si)=>{
+      rows.push([
+        si===0 ? i+1 : "",
+        si===0 ? row.kelas : "",
+        s.nominal,
+        s.tgl,
+        si===0 ? total(row) : ""
+      ]);
+    });
+  });
+  const gt = data.reduce((s,r)=>s+total(r),0);
+  rows.push(["","","","GRAND TOTAL", gt]);
+  rows.push(["","","","Target Dana", targetDana]);
+  rows.push(["","","","Pencapaian", (gt/targetDana*100).toFixed(1)+"%"]);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:5},{wch:14},{wch:14},{wch:12},{wch:16}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Recap Sumbangan");
+  XLSX.writeFile(wb, "Recap-Sumbangan-Dana-Perpisahan.xlsx");
+  showToast("✅ File Excel diunduh!");
 }
 
 function renderTable(hlKelas){
   const gt=data.reduce((s,r)=>s+total(r),0);
+  const list = getFilteredData();
   let html="";
-  data.forEach((row,i)=>{
+
+  if(!list.length){
+    document.getElementById("table-body").innerHTML = `<tr><td colspan="4" class="no-result">🔎 Tidak ada kelas/nama yang cocok dengan pencarian "${escapeAttr(searchQuery)}"</td></tr>`;
+    return;
+  }
+
+  list.forEach((row)=>{
+    const i = data.indexOf(row);
     const t=total(row), isHL=row.kelas===hlKelas;
     const sHTML=row.setoran.map(s=>{
       const key=`${row.kelas}||${s.tgl}||${s.nominal}`;
@@ -536,7 +715,15 @@ function renderTable(hlKelas){
     }).join("");
     html+=`<tr${isHL?' class="new-row"':''} data-kelas="${row.kelas}">
       <td class="no-col">${String(i+1).padStart(2,"0")}</td>
-      <td class="kelas-badge">${row.kelas}</td>
+      <td>
+        <div class="kelas-cell">
+          <div class="reorder-actions">
+            <button class="icon-btn move" title="Naik" ${i===0?"disabled":""} onclick="moveRow(${i}, -1)">▲</button>
+            <button class="icon-btn move" title="Turun" ${i===data.length-1?"disabled":""} onclick="moveRow(${i}, 1)">▼</button>
+          </div>
+          <span class="kelas-badge">${row.kelas}</span>
+        </div>
+      </td>
       <td><div class="setoran-list">${sHTML}</div></td>
       <td class="total-cell">${fmt(t)}</td>
     </tr>`;
