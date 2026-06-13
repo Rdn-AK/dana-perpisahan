@@ -382,11 +382,12 @@ async function saveEdit(){
   const tglIso = document.getElementById("edit-tanggal").value;
   if(!kelas || !nominal || nominal<=0 || !tglIso){ showToast("⚠️ Lengkapi semua data!"); return; }
   const tgl = formatTgl(tglIso);
+  const target = editTarget; // simpan dulu sebelum modal ditutup
 
   closeEditModal();
   showOverlayLoading("Menyimpan perubahan...");
   try {
-    const url = API_URL + "?action=edit&row=" + editTarget.rowIndex +
+    const url = API_URL + "?action=edit&row=" + target.rowIndex +
       "&kelas=" + encodeURIComponent(kelas) +
       "&nominal=" + nominal +
       "&tgl=" + encodeURIComponent(tgl);
