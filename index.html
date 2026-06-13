@@ -508,6 +508,25 @@ function tglToIso(tgl){
   return `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
 }
 
+// Normalisasi tanggal dari Google Sheets.
+// Sheets sering menyimpan "8/6/26" sebagai objek Date, yang saat
+// di-JSON-kan jadi string ISO UTC seperti "2026-06-08T17:00:00.000Z"
+// (mundur 1 hari karena konversi timezone). Fungsi ini mengembalikannya
+// ke format "d/m/yy" menggunakan komponen waktu LOKAL agar tanggal kembali benar.
+function normalizeTgl(raw){
+  const str = String(raw);
+  if(str.includes("T") && str.includes("Z")){
+    const dt = new Date(str);
+    if(!isNaN(dt.getTime())){
+      const d = dt.getDate();
+      const m = dt.getMonth()+1;
+      const y = String(dt.getFullYear()).slice(2);
+      return `${d}/${m}/${y}`;
+    }
+  }
+  return str;
+}
+
 function showOverlayLoading(msg){
   const ov = document.getElementById("loading-overlay");
   ov.querySelector("p").textContent = msg;
@@ -568,7 +587,7 @@ async function loadData(){
       if(!k) return;
       if(!grouped[k]) grouped[k] = [];
       // idx+2 = nomor baris di sheet (baris 1 = header)
-      grouped[k].push({ nominal: Number(row.nominal), tgl: String(row.tgl), rowIndex: idx+2 });
+      grouped[k].push({ nominal: Number(row.nominal), tgl: normalizeTgl(row.tgl), rowIndex: idx+2 });
     });
 
     orderMap = (json.order && typeof json.order === "object") ? json.order : {};
