@@ -314,7 +314,8 @@
   .kelas-badge { font-weight: 700; color: #e0d4ff; font-size: 13px; white-space: nowrap; }
   .no-col { font-family: 'Plus Jakarta Sans', sans-serif; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--text3); font-weight: 600; }
   .setoran-list { display: flex; flex-direction: column; gap: 5px; }
-  .setoran-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: relative; padding-right: 62px; }
+  .setoran-item { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; position: relative; padding-right: 62px; min-height: 26px; }
+  .setoran-item-date { display: flex; align-items: center; min-height: 26px; }
   .nominal { font-family: 'Plus Jakarta Sans', sans-serif; font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 600; color: var(--text); }
   .tanggal {
     font-size: 11px;
@@ -646,7 +647,7 @@
     <table>
       <thead>
         <tr>
-          <th>#</th><th>Kelas / Nama</th><th>Rincian Setoran</th><th>Total</th>
+          <th>#</th><th>Kelas / Nama</th><th>Nominal</th><th>Tanggal</th><th>Total</th>
         </tr>
       </thead>
       <tbody id="table-body"></tbody>
@@ -1137,7 +1138,7 @@ function renderTable(hlKelas){
   let html="";
 
   if(!list.length){
-    document.getElementById("table-body").innerHTML = `<tr><td colspan="4" class="no-result">🔎 Tidak ada kelas/nama yang cocok dengan pencarian "${escapeAttr(searchQuery)}"</td></tr>`;
+    document.getElementById("table-body").innerHTML = `<tr><td colspan="5" class="no-result">🔎 Tidak ada kelas/nama yang cocok dengan pencarian "${escapeAttr(searchQuery)}"</td></tr>`;
     return;
   }
 
@@ -1149,13 +1150,15 @@ function renderTable(hlKelas){
       const isNew=newSetoranKeys.has(key);
       return `<div class="setoran-item">
         <span class="nominal">${fmt(s.nominal)}</span>
-        <span class="tanggal">${s.tgl}</span>
         ${isNew?'<span class="new-tag">BARU</span>':""}
         <div class="setoran-actions">
           <button class="icon-btn edit" title="Edit" data-row="${s.rowIndex}" data-kelas="${escapeAttr(row.kelas)}" data-nominal="${s.nominal}" data-tgl="${s.tgl}" onclick="handleEditClick(this)">✏️</button>
           <button class="icon-btn del" title="Hapus" data-row="${s.rowIndex}" data-kelas="${escapeAttr(row.kelas)}" data-nominal="${s.nominal}" data-tgl="${s.tgl}" onclick="handleDeleteClick(this)">🗑️</button>
         </div>
       </div>`;
+    }).join("");
+    const tglHTML=row.setoran.map(s=>{
+      return `<div class="setoran-item-date"><span class="tanggal">${s.tgl}</span></div>`;
     }).join("");
     html+=`<tr${isHL?' class="new-row"':''} data-kelas="${row.kelas}">
       <td class="no-col">${String(i+1).padStart(2,"0")}</td>
@@ -1169,11 +1172,12 @@ function renderTable(hlKelas){
         </div>
       </td>
       <td><div class="setoran-list">${sHTML}</div></td>
+      <td><div class="setoran-list">${tglHTML}</div></td>
       <td class="total-cell">${fmt(t)}</td>
     </tr>`;
   });
   html+=`<tr class="total-row">
-    <td colspan="3" style="font-weight:700;color:var(--text2);font-size:13px;">GRAND TOTAL</td>
+    <td colspan="4" style="font-weight:700;color:var(--text2);font-size:13px;">GRAND TOTAL</td>
     <td class="total-cell">${fmt(gt)}</td>
   </tr>`;
   document.getElementById("table-body").innerHTML=html;
