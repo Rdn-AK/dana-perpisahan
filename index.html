@@ -363,12 +363,23 @@
     transition: all 0.3s var(--ease-out-quint); outline: none; width: 100%;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
   }
-  .form-group select option { background: #1a3a6e; color: #fff; }
+  .form-group select {
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; background-size: 13px;
+    padding-right: 38px; cursor: pointer;
+  }
+  .form-group select option {
+    background: #16284f; color: #fff; padding: 10px 12px; font-weight: 500;
+  }
+  .form-group select option:disabled { color: var(--text3); font-size: 11px; }
+  .form-group select optgroup { background: #16284f; color: var(--accent2); font-style: normal; font-weight: 700; }
   .form-group input::placeholder, .setoran-row input::placeholder { color: var(--text3); }
   .form-group input:focus, .form-group select:focus, .setoran-row input:focus {
     border-color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.15);
     box-shadow: 0 0 0 4px rgba(255,255,255,0.15), inset 0 1px 0 rgba(255,255,255,0.2);
   }
+  .form-group select:hover { border-color: rgba(255,255,255,0.45); }
   input[type="date"]::-webkit-calendar-picker-indicator { filter: opacity(0.5); cursor: pointer; transition: opacity 0.2s; }
   input[type="date"]::-webkit-calendar-picker-indicator:hover { filter: opacity(0.9); }
   
@@ -581,6 +592,7 @@
         <label>Pilih Kelas / Nama</label>
         <select id="sel-kelas" onchange="onKelasChange()">
           <option value="">-- Silakan Pilih --</option>
+          <optgroup label="Kelas">
           <option value="XII - A1">XII - A1</option>
           <option value="XII - A2">XII - A2</option>
           <option value="XII - B1">XII - B1</option>
@@ -594,7 +606,8 @@
           <option value="XII - F2">XII - F2</option>
           <option value="XII - G1">XII - G1</option>
           <option value="XII - G2">XII - G2</option>
-          <option value="__lainnya__">✏️ Lainnya (isi manual)</option>
+          </optgroup>
+          <option value="__lainnya__">✏️ Tambah Kelas/Nama Baru...</option>
         </select>
       </div>
       <div class="form-group" id="group-custom" style="display:none;">
@@ -685,6 +698,21 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeDeleteModal()">Batal</button>
       <button class="btn-confirm-del" onclick="confirmDelete()">Ya, Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- Target Dana Modal -->
+<div class="modal-overlay" id="target-modal">
+  <div class="modal">
+    <h3>🎯 Atur Target Pencapaian</h3>
+    <div class="form-group">
+      <label>Target Dana (Rp)</label>
+      <input type="number" id="target-input" min="0" step="1000" placeholder="cth: 100000000" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeTargetModal()">Batal</button>
+      <button class="btn-save" onclick="saveTargetDana()">Simpan Target</button>
     </div>
   </div>
 </div>
@@ -926,6 +954,7 @@ async function loadData(){
     });
     data = keys.map((k,i)=>({ id:i+1, kelas:k, setoran:grouped[k] }));
 
+    populateKelasOptions();
     updateLastUpdated(); render(); setStatus("online");
   } catch(e) { setStatus("error"); showToast("❌ Gagal memuat data. Periksa koneksi."); } 
   finally { hideLoading(); }
@@ -974,11 +1003,18 @@ function renderProgress(gt, persen){
 }
 
 function editTargetDana(){
-  const current = targetDana; const input = prompt("Sesuaikan target dana (Rp):", current);
-  if(input === null) return;
-  const val = parseFloat(input.replace(/[^0-9]/g,""));
+  document.getElementById("target-input").value = targetDana;
+  document.getElementById("target-modal").classList.add("show");
+  setTimeout(()=>document.getElementById("target-input").focus(), 350);
+}
+function closeTargetModal(){ document.getElementById("target-modal").classList.remove("show"); }
+
+function saveTargetDana(){
+  const input = document.getElementById("target-input").value;
+  const val = parseFloat(String(input).replace(/[^0-9]/g,""));
   if(!val || val<=0){ showToast("⚠️ Format tidak valid!"); return; }
   targetDana = val; localStorage.setItem("targetDana", String(val));
+  closeTargetModal();
   renderStats(); showToast("✅ Target diperbarui!");
   setTimeout(() => observeElements(), 50); // Re-observe after stats update
 }
@@ -1061,6 +1097,30 @@ function onKelasChange(){
 }
 
 function getKelas(){ const s=document.getElementById("sel-kelas").value; return s==="__lainnya__"?document.getElementById("inp-kelas-custom").value.trim():s; }
+
+function populateKelasOptions(){
+  const sel = document.getElementById("sel-kelas");
+  const prevVal = sel.value;
+  const known = new Set(ORDER);
+  const extra = data.map(r=>r.kelas).filter(k=>k && !known.has(k));
+  extra.sort((a,b)=>a.localeCompare(b,"id"));
+
+  let html = `<option value="">-- Silakan Pilih --</option>`;
+  html += `<optgroup label="Kelas">`;
+  ORDER.forEach(k=> html += `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`);
+  html += `</optgroup>`;
+  if(extra.length){
+    html += `<optgroup label="Nama / Lainnya yang Sudah Terdaftar">`;
+    extra.forEach(k=> html += `<option value="${escapeAttr(k)}">${escapeAttr(k)}</option>`);
+    html += `</optgroup>`;
+  }
+  html += `<option value="__lainnya__">✏️ Tambah Kelas/Nama Baru...</option>`;
+
+  sel.innerHTML = html;
+
+  const stillExists = Array.from(sel.options).some(o=>o.value===prevVal);
+  sel.value = stillExists ? prevVal : "";
+}
 
 function addSetoran(){
   const row=document.createElement("div"); row.className="setoran-row";
